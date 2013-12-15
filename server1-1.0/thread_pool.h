@@ -15,6 +15,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include "workers.h"
+#include "rbsignal.h"
 #define DAREN_WORKER_INSERT 1
 #define DAREN_WORKER_DELETE 2
 #define DAREN_WORKER_UPDATE 3 

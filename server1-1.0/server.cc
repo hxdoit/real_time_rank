@@ -17,6 +17,8 @@
 #include "node.h"   
 #include "config_file.h"   
 #include "tool.h"   
+#include "rbsignal.h"   
+static int pipefd[2];
 // 获取文件行数
 unsigned int get_line_num(char *f)
 {
@@ -53,18 +55,35 @@ void init_insert(char *f)
 }
 
 
-void accept_callback(int fd,
-		short ev,
-		void *arg)
+void sig_callback(int fd,short ev,void *arg)
+{
+	char c[4];
+	read(fd, c ,4);
+	int sig = *(int*)c;
+	switch(sig)
+	{
+		case SIGHUP:
+			fprintf(stderr,"receive SIGHUP\n");  
+			break;
+		case SIGINT:
+			fprintf(stderr,"receive SIGINT\n");  
+			break;
+		case SIGTERM:
+			fprintf(stderr,"receive SIGTERM\n");  
+			break;
+		case SIGPIPE:
+			fprintf(stderr,"receive SIGPIPE\n");  
+			break;
+	}
+}
+void accept_callback(int fd,short ev,void *arg)
 {
 	int client_fd;
 	struct sockaddr_in client_addr;
 	socklen_t client_len = sizeof(client_addr);
 	struct client *client;
 
-	client_fd = accept(fd,
-			(struct sockaddr *)&client_addr,
-			&client_len);
+	client_fd = accept(fd,	(struct sockaddr *)&client_addr,&client_len);
 	if (client_fd < 0)
 	{
 		fprintf(stderr,"accept failed\n");  
@@ -72,18 +91,18 @@ void accept_callback(int fd,
 	}
 
 	setnonblock(client_fd);
-        queue_add_item(client_fd);
+	queue_add_item(client_fd);
 }
 
 
 int main(int argc, char *argv[])    
 {    
-        //只允许运行一个实例
-        if(already_running(LOCKFILE))
-        {
+	//只允许运行一个实例
+	if(already_running(LOCKFILE))
+	{
 		fprintf(stderr,"an instance is already running\n");  
-                exit(1);
-        }
+		exit(1);
+	}
 
 	//读取配置文件
 	parse_config_file("server.conf");
@@ -138,8 +157,16 @@ int main(int argc, char *argv[])
 		exit(1);    
 	}    
 
+	/*信号处理*/
+	block_all_signal();
+
 	/*初始化线程池*/
 	thread_pool_init(thread_num); 
+
+	/*为主线程添加信号处理*/
+	pipe(pipefd);
+	set_pipe(pipefd[1]);
+	main_thread_sig_hand();
 
 	/*初始化存储空间,多申请20%的空间*/
 	unsigned int line_num = get_line_num(argv[2]);
@@ -151,31 +178,27 @@ int main(int argc, char *argv[])
 	fprintf(stderr,"finish init insert,begin accept request...\n");    
 
 	struct event accept_event;
+	struct event sig_event;
 	int reuse = 1;
 
 	struct event_base* base=event_init();
-	setsockopt(sockfd,
-			SOL_SOCKET,
-			SO_REUSEADDR,
-			&reuse,
-			sizeof(reuse));
+	setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR,&reuse,sizeof(reuse));
 
 	setnonblock(sockfd);
+	setnonblock(pipefd[0]);
 
-	event_set(&accept_event,
-			sockfd,
-			EV_READ|EV_PERSIST,
-			accept_callback,
-			NULL);
+	event_set(&accept_event,sockfd, EV_READ|EV_PERSIST, accept_callback, NULL);
+	event_set(&sig_event,pipefd[0], EV_READ|EV_PERSIST, sig_callback, NULL);
 
-        event_base_set(base, &accept_event);
-	event_add(&accept_event,
-			NULL);
+	event_base_set(base, &accept_event);
+	event_base_set(base, &sig_event);
+
+	event_add(&accept_event,NULL);
+	event_add(&sig_event,NULL);
 
 	event_base_loop(base, 0);
 
 	close(sockfd);
-
 
 	exit(0);    
 }    

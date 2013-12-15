@@ -17,8 +17,7 @@ int setnonblock(int fd)
 }
 void fd_push(FD_NODE** head, FD_NODE** tail, int fd)
 {
-	FD_NODE* new_node = (FD_NODE*)malloc(sizeof(FD_NODE));
-	new_node -> fd=fd;
+	FD_NODE* new_node = (FD_NODE*)malloc(sizeof(FD_NODE)); new_node -> fd=fd;
 	new_node -> pre=NULL;
 	new_node -> next=NULL;
 	//如果队列为空
