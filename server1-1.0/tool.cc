@@ -3,29 +3,29 @@
 int daemonize()
 {
         //创建父进程，创建子进程，使程序在后台运行
-	pid_t pid=fork();
-	if(pid<0)
-		return -1;
-	else if(pid >0)
-		exit;
+        pid_t pid=fork();
+        if(pid<0)
+                return -1;
+        else if(pid >0)
+                exit;
 
         //设置文件权限掩码
-	umask(0);
+        umask(0);
         //创建新的会话，从而使程序脱离终端
-	pid_t sid=setsid();
-	if(sid<0)
-		return -1;
+        pid_t sid=setsid();
+        if(sid<0)
+                return -1;
         //切换工作目录
-	if(chdir("/")<0)
-		return -1;
+        if(chdir("/")<0)
+                return -1;
         //关闭标准输入，输出，错误
-	close(STDIN_FILENO);
-	close(STDOUT_FILENO);
-	close(STDERR_FILENO);
+        close(STDIN_FILENO);
+        close(STDOUT_FILENO);
+        close(STDERR_FILENO);
         //重定向标准输入，输出，错误
-	open("/dev/null",O_RDONLY);
-	open("/dev/null",O_RDWR);
-	open("/dev/null",O_RDWR);
+        open("/dev/null",O_RDONLY);
+        open("/dev/null",O_RDWR);
+        open("/dev/null",O_RDWR);
         return 0;
 }
 /* set advisory lock on file */
