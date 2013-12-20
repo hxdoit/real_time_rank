@@ -10,6 +10,7 @@ AM_INIT_AUTOMAKE(server1,1.0)
 AC_PROG_CXX
 AC_PROG_CC
 
+AC_PROG_RANLIB
 # Checks for libraries.
 # FIXME: Replace `main' with a function in `-levent':
 AC_CHECK_LIB([event], [main])
