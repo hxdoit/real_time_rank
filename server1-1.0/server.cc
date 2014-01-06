@@ -1,4 +1,5 @@
 /******* 服务器程序 (server.c) ************/    
+//aa
 #include  <stdio.h>   
 #include  <stdlib.h>   
 #include <sys/types.h>   
