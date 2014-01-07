@@ -8,7 +8,9 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <sys/resource.h>
 #define LOCKFILE "/var/run/mydaemon.pid"
 #define LOCKMODE (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
 int already_running(const char*);
+int daemonize();
 #endif

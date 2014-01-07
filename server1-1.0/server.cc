@@ -98,24 +98,24 @@ void accept_callback(int fd,short ev,void *arg)
 
 int main(int argc, char *argv[])    
 {    
-	//只允许运行一个实例
-	if(already_running(LOCKFILE))
-	{
-		fprintf(stderr,"an instance is already running\n");  
-		exit(1);
-	}
+    //只允许运行一个实例
+    if(already_running(LOCKFILE))
+    {
+        fprintf(stderr,"an instance is already running\n");  
+        exit(1);
+    }
 
-	//读取配置文件
-	parse_config_file("server.conf");
-	char* c_thread_num=get_config_var("thread_num");
-	int thread_num= c_thread_num ? atoi(c_thread_num) : 5;
-	fprintf(stderr,"thread_num:%d\n",thread_num);  
+    //读取配置文件
+    parse_config_file("server.conf");
+    char* c_thread_num=get_config_var("thread_num");
+    int thread_num= c_thread_num ? atoi(c_thread_num) : 5;
+    fprintf(stderr,"thread_num:%d\n",thread_num);  
 
-	int sockfd,new_fd;    
-	struct sockaddr_in server_addr;    
-	struct sockaddr_in client_addr;    
-	int portnumber;    
-	socklen_t sin_size;
+    int sockfd,new_fd;    
+    struct sockaddr_in server_addr;    
+    struct sockaddr_in client_addr;    
+    int portnumber;    
+    socklen_t sin_size;
 
     int temp= 0;
     char *opt_str="p:f:";
@@ -134,79 +134,82 @@ int main(int argc, char *argv[])
     }
     if (!portnumber || !init_file)
     {
-		fprintf(stderr,"Usage:\n-p <port>\n-f <init_file>\n");    
+        fprintf(stderr,"Usage:\n-p <port>\n-f <init_file>\n");    
         return 0;
     }
 
-	/* 服务器端开始建立socket描述符 */    
-	if((sockfd=socket(AF_INET,SOCK_STREAM,0))==-1)    
-	{    
-		fprintf(stderr,"Socket error:%s\n\a",strerror(errno));    
-		exit(1);    
-	}    
+    daemonize();
 
-	/* 服务器端填充 sockaddr结构 */    
-	bzero(&server_addr,sizeof(struct sockaddr_in));    
-	server_addr.sin_family=AF_INET;    
-	server_addr.sin_addr.s_addr=htonl(INADDR_ANY);    
-	server_addr.sin_port=htons(portnumber);    
+    /* 服务器端开始建立socket描述符 */    
+    if((sockfd=socket(AF_INET,SOCK_STREAM,0))==-1)    
+    {    
+        fprintf(stderr,"Socket error:%s\n\a",strerror(errno));    
+        exit(1);    
+    }    
 
-	/* 捆绑sockfd描述符 */    
-	if(bind(sockfd,(struct sockaddr *)(&server_addr),sizeof(struct sockaddr))==-1)    
-	{    
-		fprintf(stderr,"Bind error:%s\n\a",strerror(errno));    
-		exit(1);    
-	}    
+    /* 服务器端填充 sockaddr结构 */    
+    bzero(&server_addr,sizeof(struct sockaddr_in));    
+    server_addr.sin_family=AF_INET;    
+    server_addr.sin_addr.s_addr=htonl(INADDR_ANY);    
+    server_addr.sin_port=htons(portnumber);    
 
-	/* 监听sockfd描述符 */    
-	if(listen(sockfd,1024)==-1)    
-	{    
-		fprintf(stderr,"Listen error:%s\n\a",strerror(errno));    
-		exit(1);    
-	}    
+    /* 捆绑sockfd描述符 */    
+    if(bind(sockfd,(struct sockaddr *)(&server_addr),sizeof(struct sockaddr))==-1)    
+    {    
+        fprintf(stderr,"Bind error:%s\n\a",strerror(errno));    
+        exit(1);    
+    }    
 
-	/*信号处理*/
-	block_all_signal();
+    /* 监听sockfd描述符 */    
+    if(listen(sockfd,1024)==-1)    
+    {    
+        fprintf(stderr,"Listen error:%s\n\a",strerror(errno));    
+        exit(1);    
+    }    
 
-	/*初始化线程池*/
-	thread_pool_init(thread_num); 
 
-	/*为主线程添加信号处理*/
-	pipe(pipefd);
-	set_pipe(pipefd[1]);
-	main_thread_sig_hand();
+    /*信号处理*/
+    block_all_signal();
 
-	/*初始化存储空间,多申请20%的空间*/
-	unsigned int line_num = get_line_num(init_file);
-	buffer_init((int)(1.2*line_num)); 
+    /*初始化线程池*/
+    thread_pool_init(thread_num); 
 
-	/*初始化插入*/
-	init_insert(init_file);
+    /*为主线程添加信号处理*/
+    pipe(pipefd);
+    set_pipe(pipefd[1]);
+    main_thread_sig_hand();
 
-	fprintf(stderr,"finish init insert,begin accept request...\n");    
+    /*初始化存储空间,多申请20%的空间*/
+    unsigned int line_num = get_line_num(init_file);
+    buffer_init((int)(1.2*line_num)); 
 
-	struct event accept_event;
-	struct event sig_event;
-	int reuse = 1;
+    /*初始化插入*/
+    init_insert(init_file);
 
-	struct event_base* base=event_init();
-	setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR,&reuse,sizeof(reuse));
+    fprintf(stderr,"finish init insert,begin accept request...\n");    
 
-	setnonblock(sockfd);
-	setnonblock(pipefd[0]);
+    struct event accept_event;
+    struct event sig_event;
+    int reuse = 1;
 
-	event_set(&accept_event,sockfd, EV_READ|EV_PERSIST, accept_callback, NULL);
-	event_set(&sig_event,pipefd[0], EV_READ|EV_PERSIST, sig_callback, NULL);
+    struct event_base* base=event_init();
+    setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR,&reuse,sizeof(reuse));
 
-	event_base_set(base, &accept_event);
-	event_base_set(base, &sig_event);
+    setnonblock(sockfd);
+    setnonblock(pipefd[0]);
 
-	event_add(&accept_event,NULL);
-	event_add(&sig_event,NULL);
+    event_set(&accept_event,sockfd, EV_READ|EV_PERSIST, accept_callback, NULL);
+    event_set(&sig_event,pipefd[0], EV_READ|EV_PERSIST, sig_callback, NULL);
 
-	event_base_loop(base, 0);
+    event_base_set(base, &accept_event);
+    event_base_set(base, &sig_event);
 
-	close(sockfd);
+    event_add(&accept_event,NULL);
+    event_add(&sig_event,NULL);
 
-	exit(0);    
+    event_base_loop(base, 0);
+
+    close(sockfd);
+
+    exit(0);    
 }    

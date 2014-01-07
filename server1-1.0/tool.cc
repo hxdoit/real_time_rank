@@ -7,7 +7,7 @@ int daemonize()
         if(pid<0)
                 return -1;
         else if(pid >0)
-                exit;
+                exit(0);
 
         //设置文件权限掩码
         umask(0);
@@ -17,11 +17,22 @@ int daemonize()
                 return -1;
         //切换工作目录
         if(chdir("/")<0)
-                return -1;
+            return -1;
         //关闭标准输入，输出，错误
         close(STDIN_FILENO);
         close(STDOUT_FILENO);
         close(STDERR_FILENO);
+
+        struct rlimit rl;
+        if(getrlimit(RLIMIT_NOFILE, &rl) < 0) {
+            fprintf(stderr, "can't get file limit\n");
+            return -1;
+        }
+        if(rl.rlim_max == RLIM_INFINITY)
+            rl.rlim_max = 1024;
+        for(int i=0;i<rl.rlim_max;i++)
+            close(i);
+
         //重定向标准输入，输出，错误
         open("/dev/null",O_RDONLY);
         open("/dev/null",O_RDWR);
