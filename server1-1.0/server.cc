@@ -108,10 +108,8 @@ int main(int argc, char *argv[])
 	//读取配置文件
 	parse_config_file("server.conf");
 	char* c_thread_num=get_config_var("thread_num");
-	char* c_listen_num=get_config_var("listen_num");
 	int thread_num= c_thread_num ? atoi(c_thread_num) : 5;
-	int listen_num= c_listen_num ? atoi(c_listen_num) : 1024;
-	fprintf(stderr,"thread_num:%d\nlisten_num:%d\n",thread_num,listen_num);  
+	fprintf(stderr,"thread_num:%d\n",thread_num);  
 
 	int sockfd,new_fd;    
 	struct sockaddr_in server_addr;    
@@ -119,17 +117,26 @@ int main(int argc, char *argv[])
 	int portnumber;    
 	socklen_t sin_size;
 
-	if(argc<3)    
-	{    
-		fprintf(stderr,"Usage:%s portnumber\a\n",argv[0]);    
-		exit(1);    
-	}    
-
-	if((portnumber=atoi(argv[1]))<0)    
-	{    
-		fprintf(stderr,"Usage:%s portnumber\a\n",argv[0]);    
-		exit(1);    
-	}    
+    int temp= 0;
+    char *opt_str="p:f:";
+    char *init_file = NULL;
+    while((temp= getopt(argc, argv, opt_str))!=-1)
+    {
+        switch(temp)
+        {
+            case 'p':
+                portnumber = atoi(optarg);
+                break;
+            case 'f':
+                init_file = optarg;
+                break;
+        }
+    }
+    if (!portnumber || !init_file)
+    {
+		fprintf(stderr,"Usage:\n-p <port>\n-f <init_file>\n");    
+        return 0;
+    }
 
 	/* 服务器端开始建立socket描述符 */    
 	if((sockfd=socket(AF_INET,SOCK_STREAM,0))==-1)    
@@ -152,7 +159,7 @@ int main(int argc, char *argv[])
 	}    
 
 	/* 监听sockfd描述符 */    
-	if(listen(sockfd,listen_num)==-1)    
+	if(listen(sockfd,1024)==-1)    
 	{    
 		fprintf(stderr,"Listen error:%s\n\a",strerror(errno));    
 		exit(1);    
@@ -170,11 +177,11 @@ int main(int argc, char *argv[])
 	main_thread_sig_hand();
 
 	/*初始化存储空间,多申请20%的空间*/
-	unsigned int line_num = get_line_num(argv[2]);
+	unsigned int line_num = get_line_num(init_file);
 	buffer_init((int)(1.2*line_num)); 
 
 	/*初始化插入*/
-	init_insert(argv[2]);
+	init_insert(init_file);
 
 	fprintf(stderr,"finish init insert,begin accept request...\n");    
 
